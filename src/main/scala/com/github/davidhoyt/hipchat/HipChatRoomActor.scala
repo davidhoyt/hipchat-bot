@@ -93,7 +93,7 @@ class HipChatRoomActor extends Actor with ActorLogging {
             try {
               //Space message delivery out.
               for ((msg, idx) <- instance.messageReceived(botMsg).zipWithIndex)
-                context.system.scheduler.scheduleOnce(idx.milliseconds, self, msg)
+                context.system.scheduler.scheduleOnce(idx.milliseconds * 10, self, msg)
             } catch {
               case NonFatal(t) =>
                 log.error(t, "Error while processing message for bot: {}", botMsg)

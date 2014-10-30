@@ -64,7 +64,7 @@ class ScalaBot(enableExclamation: Boolean, announce: Boolean) extends Bot with L
   }
 
   override def messageReceived: MessageReceived = {
-    case BotMessageReceived(_, message) if message.startsWith(s"@$mentionName") =>
+    case BotMessageReceived(_, message) if message.startsWith(s"@$mentionName") && message.charAt(mentionName.length + 1) <= ' ' =>
       combine(process(ltrim(message.drop(mentionName.length + 1))))
 
     case BotMessageReceived(_, message) if enableExclamation && message.startsWith("!") =>
@@ -92,8 +92,10 @@ class ScalaBot(enableExclamation: Boolean, announce: Boolean) extends Bot with L
     }
 
   def combine(messages: Seq[(String, String)]): Seq[BotMessage] =
-    messages map {
-      case (prepend, reply) =>
-        BotMessage(s"$prepend\n$reply")
+    messages flatMap {
+      case (prepend, reply) if !reply.trim().isEmpty =>
+        Some(BotMessage(s"$prepend\n$reply"))
+      case _ =>
+        None
     }
 }
