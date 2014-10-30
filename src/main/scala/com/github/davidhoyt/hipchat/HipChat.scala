@@ -6,7 +6,7 @@ object HipChat {
   case class HipChatConfiguration(host: String, port: Int, userName: String, password: String)
   case class Connect(configuration: HipChatConfiguration)
   case class JoinRoom[T <: Bot](roomId: String, nickName: String, mentionName: String, botFactory: BotFactory[T], args: Seq[Any] = Seq())
-  case class StatusUpdate(status: Status)
+  case class StatusUpdate(update: Status, status: String = "")
   case class MessageReceived(from: String, message: String)
   case object KeepAlive
 

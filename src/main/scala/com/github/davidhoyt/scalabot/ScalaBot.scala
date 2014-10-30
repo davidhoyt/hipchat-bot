@@ -1,5 +1,6 @@
 package com.github.davidhoyt.scalabot
 
+import akka.actor.ActorRef
 import com.github.davidhoyt.Bot
 
 
@@ -18,12 +19,15 @@ object ScalaBot {
   )
 }
 
-class ScalaBot(roomId: String, enableExclamation: Boolean) extends Bot {
+class ScalaBot(roomId: String, enableExclamation: Boolean, hipchat: Option[ActorRef]) extends Bot {
+  import com.github.davidhoyt.hipchat.HipChat._
   import com.github.davidhoyt.{BotConfiguration, BotMessage}
   import ScalaBot._
 
   val repl = new REPL(roomId)
   repl.start()
+
+  hipchat map(_ ! StatusUpdate(Available, "BEEP WHIR GYVE"))
 
   val help: String =
     """Available commands:

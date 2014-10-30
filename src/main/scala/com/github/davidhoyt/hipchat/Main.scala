@@ -44,10 +44,10 @@ object Main extends App with LazyLogging {
     hipchat ! Connect(HipChatConfiguration(host, port, userName, password))
 
     for (room <- rooms)
-      hipchat ! JoinRoom(room, nickName, mentionName, BotFactory[ScalaBot], Seq(room, true /*enableExclamation*/))
+      hipchat ! JoinRoom(room, nickName, mentionName, BotFactory[ScalaBot], Seq(room, true /*enableExclamation*/, Some(hipchat)))
   }
 
-  val scalaBot = BotFactory[ScalaBot].apply(Seq("console", false)).get
+  val scalaBot = BotFactory[ScalaBot].apply(Seq("console", false, None)).get
 
   println("Use :quit to exit the application.")
   print("scala> ")

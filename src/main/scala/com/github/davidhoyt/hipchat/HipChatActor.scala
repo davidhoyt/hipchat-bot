@@ -89,7 +89,7 @@ class HipChatActor extends Actor with ActorLogging {
     case join @ JoinRoom(roomId, _, _, _, _) =>
       context.actorOf(HipChatRoom.props, roomId) forward join
 
-    case StatusUpdate(status) =>
-      xmpp.connection map (_.sendPacket(presenceFor(status)))
+    case StatusUpdate(update, status) =>
+      xmpp.connection map (_.sendPacket(presenceFor(update, status)))
   }
 }
