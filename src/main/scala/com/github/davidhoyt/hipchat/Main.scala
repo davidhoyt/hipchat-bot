@@ -1,5 +1,6 @@
 package com.github.davidhoyt.hipchat
 
+import com.github.davidhoyt.BotInitialize
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.slf4j.LazyLogging
 
@@ -44,16 +45,17 @@ object Main extends App with LazyLogging {
     hipchat ! Connect(HipChatConfiguration(host, port, userName, password))
 
     for (room <- rooms)
-      hipchat ! JoinRoom(room, nickName, mentionName, BotFactory[ScalaBot], Seq(room, true /*enableExclamation*/, Some(hipchat)))
+      hipchat ! JoinRoom(room, nickName, mentionName, BotFactory[ScalaBot], Seq(true /*enableExclamation*/, true /*announce*/))
   }
 
-  val scalaBot = BotFactory[ScalaBot].apply(Seq("console", false, None)).get
+  val scalaBot = BotFactory[ScalaBot].apply(Seq(false, false)).get
+  scalaBot.initializeReceived(BotInitialize("", "", "console", None, None))
 
   println("Use :quit to exit the application.")
   print("scala> ")
   var line = ""
   while({line = Console.in.readLine(); line} != ":quit") {
-    val (_, reply) = scalaBot.process(line)
+    val (_, reply) = scalaBot.process(line).last
     println(reply)
     print("scala> ")
   }

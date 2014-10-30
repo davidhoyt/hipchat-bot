@@ -1,17 +1,26 @@
 package com.github.davidhoyt
 
 import akka.actor.ActorRef
+import com.typesafe.scalalogging.Logging
 
-case class BotMessage(config: BotConfiguration, from: String, message: String)
-case class BotConfiguration(myNickName: String, myMentionName: String, myRoomId: String, hipchat: ActorRef)
+case class BotInitialize(nickName: String, mentionName: String, roomId: String, hipchat: Option[ActorRef], room: Option[ActorRef])
+case class BotMessageReceived(from: String, message: String)
+case class BotMessage(message: String)
 
 /**
  * Guaranteed to process messages sequentially and in a thread-safe manner.
  * Therefore mutable state is acceptable. It is effectively an actor.
  */
-trait Bot {
-  type MessageReceived = PartialFunction[BotMessage, String]
+trait Bot { self: Logging =>
+  type InitializeReceived = PartialFunction[BotInitialize, Unit]
+  type MessageReceived = PartialFunction[BotMessageReceived, Seq[BotMessage]]
+
   def messageReceived: MessageReceived
+
+  def initializeReceived: InitializeReceived = {
+    case initialize =>
+      logger.info(s"Initialized bot with $initialize")
+  }
 }
 
 /**

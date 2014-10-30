@@ -1,7 +1,7 @@
 package com.github.davidhoyt.hipchat
 
 import akka.actor._
-import com.github.davidhoyt.{BotFactory, BotConfiguration, BotMessage, Bot}
+import com.github.davidhoyt._
 
 object HipChatRoom {
   def props: Props =
@@ -17,11 +17,13 @@ class HipChatRoomActor extends Actor with ActorLogging {
   import scala.util.control.NonFatal
   import HipChat._
 
+  import context.dispatcher
+
   val xmpp = Xmpp(context.system)
   var muc: MultiUserChat = _
   var hipchat: ActorRef = _
+  var nickName: String = _
   var obs: Observable[Message] = _
-  var botConfiguration: BotConfiguration = _
   var botFactory: BotFactory[_ <: Bot] = _
   var bot: Option[Bot] = None
 
@@ -30,6 +32,9 @@ class HipChatRoomActor extends Actor with ActorLogging {
       log.info("Joining room {} with {}/@{}", roomId, joinNickName, joinMentionName)
 
       val fullRoomId = s"$roomId@conf.hipchat.com"
+
+      val myself = self
+      val originalSender = sender()
 
       val history = new DiscussionHistory
       history.setMaxChars(0)
@@ -42,16 +47,22 @@ class HipChatRoomActor extends Actor with ActorLogging {
           muc = new MultiUserChat(connection, fullRoomId)
           muc.join(joinNickName, null, history, SmackConfiguration.getDefaultPacketReplyTimeout)
 
-          hipchat = sender()
+          hipchat = originalSender
           botFactory = joinBotFactory
-          botConfiguration = BotConfiguration(joinNickName, joinMentionName, roomId, hipchat)
           bot = botFactory(joinBotArgs)
+          nickName = joinNickName
 
           log.info("Successfully joined {}", roomId)
 
+          bot map { instance =>
+            val initialize = BotInitialize(joinNickName, joinMentionName, roomId, Some(originalSender), Some(myself))
+            if (instance.initializeReceived.isDefinedAt(initialize))
+              instance.initializeReceived(initialize)
+          }
+
           context.become(joinedRoom)
 
-          val myself = self
+
           muc.toObservable foreach { msg =>
             myself ! MessageReceived(msg.getFrom, Option(msg.getBody).getOrElse(""))
           }
@@ -68,18 +79,21 @@ class HipChatRoomActor extends Actor with ActorLogging {
     case msg @ MessageReceived(from, message) =>
       log.info("Received {}", msg)
       val idx = from.indexOf("/")
-      val participantNickname =
+      val participantNickName =
         if (idx > 0)
           from.substring(idx + 1)
         else
           from
 
-      if (participantNickname != botConfiguration.myNickName) {
+      if (participantNickName != nickName) {
         bot map { instance =>
-          val botMsg = BotMessage(botConfiguration, participantNickname, message)
+          val botMsg = BotMessageReceived(participantNickName, message)
           if (instance.messageReceived.isDefinedAt(botMsg)) {
+            import scala.concurrent.duration._
             try {
-              muc.sendMessage(instance.messageReceived(botMsg))
+              //Space message delivery out.
+              for ((msg, idx) <- instance.messageReceived(botMsg).zipWithIndex)
+                context.system.scheduler.scheduleOnce(idx.milliseconds, self, msg)
             } catch {
               case NonFatal(t) =>
                 log.error(t, "Error while processing message for bot: {}", botMsg)
@@ -87,6 +101,9 @@ class HipChatRoomActor extends Actor with ActorLogging {
           }
         }
       }
+
+    case BotMessage(message) =>
+      muc.sendMessage(message)
   }
 
   override val supervisorStrategy =
