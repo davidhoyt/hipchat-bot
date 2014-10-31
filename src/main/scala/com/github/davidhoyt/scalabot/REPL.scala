@@ -3,7 +3,7 @@ package com.github.davidhoyt.scalabot
 import java.io._
 
 import com.Ostermiller.util.CircularCharBuffer
-import com.github.davidhoyt.Security
+import com.github.davidhoyt.{WriterOutputStream, ThreadPrintStream, Security}
 import com.typesafe.scalalogging.slf4j.LazyLogging
 
 import scala.tools.nsc.Settings
@@ -45,7 +45,10 @@ class REPL(val name: String, val replPrompt: String = "") extends LazyLogging {
       }
       sb.appendAll(charBuffer, 0, read)
     } while(read > 0 && !done)
-    sb.toString()
+    if (sb.size < 10000)
+      sb.toString()
+    else
+      sb.take(10000 - "...".length).append("...").toString()
   }
 
   private[this] def repl = replLock synchronized {
@@ -72,6 +75,7 @@ class REPL(val name: String, val replPrompt: String = "") extends LazyLogging {
     val t = new Thread {
       override def run(): Unit =
         try {
+          ThreadPrintStream.setThreadLocalSystemOut(new PrintStream(new WriterOutputStream(outWriter), true))
           var attempts = 0
           while(!closing && attempts < 5) {
             if (!Security.unprivileged(repl process settings)) {

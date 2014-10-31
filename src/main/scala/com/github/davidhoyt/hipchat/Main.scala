@@ -2,7 +2,7 @@ package com.github.davidhoyt.hipchat
 
 import java.io.File
 
-import com.github.davidhoyt.{Security, BotInitialize}
+import com.github.davidhoyt.{ThreadPrintStream, Security, BotInitialize}
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.slf4j.LazyLogging
 
@@ -17,6 +17,7 @@ object Main extends App with LazyLogging {
   sys.props("application.home") = new File(".").getAbsolutePath
   sys.props("java.security.policy") = new File("hipchat.policy").getAbsolutePath
 
+  ThreadPrintStream.replaceSystemOut()
   Security.install()
   Security.privileged {
 
