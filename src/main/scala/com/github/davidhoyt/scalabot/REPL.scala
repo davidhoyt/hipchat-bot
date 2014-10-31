@@ -3,6 +3,7 @@ package com.github.davidhoyt.scalabot
 import java.io._
 
 import com.Ostermiller.util.CircularCharBuffer
+import com.github.davidhoyt.Security
 import com.typesafe.scalalogging.slf4j.LazyLogging
 
 import scala.tools.nsc.Settings
@@ -73,7 +74,7 @@ class REPL(val name: String, val replPrompt: String = "") extends LazyLogging {
         try {
           var attempts = 0
           while(!closing && attempts < 5) {
-            if (!(repl process settings)) {
+            if (!Security.unprivileged(repl process settings)) {
               attempts += 1
               logger.error(s"Unable to initialize Scala interpreter (attempt #$attempts)")
             } else {

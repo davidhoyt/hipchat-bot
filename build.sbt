@@ -12,8 +12,13 @@ libraryDependencies ++= Seq(
   "org.igniterealtime.smack" % "smack-core" % "4.0.5",
   "org.igniterealtime.smack" % "smack-tcp" % "4.0.5",
   "org.igniterealtime.smack" % "smack-extensions" % "4.0.5",
+  //
   "org.scala-lang" % "scala-compiler" % "2.11.2",
   "org.scala-lang" % "scala-reflect" % "2.11.2",
+  //
+  "org.wildfly.security" % "wildfly-security-manager" % "1.0.1.Final",
+  "org.jboss.logging" % "jboss-logging" % "3.1.3.GA",
+  //
 //  "org.scala-lang.modules" %% "scala-xml" % "1.0.2",
 //  "org.apache.camel" % "camel-xmpp" % camelVersion,
 //  "org.apache.camel" % "camel-scala" % camelVersion,
