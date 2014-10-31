@@ -6,6 +6,9 @@ import com.github.davidhoyt.{ThreadPrintStream, Security, BotInitialize}
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.slf4j.LazyLogging
 
+import scala.concurrent.duration.FiniteDuration
+import scala.tools.nsc.util.ClassPath
+
 object Main extends App with LazyLogging {
   import akka.actor.ActorSystem
   import com.github.davidhoyt.BotFactory
@@ -13,6 +16,8 @@ object Main extends App with LazyLogging {
   import com.typesafe.config.ConfigFactory
   import net.ceedubs.ficus.Ficus._
   import HipChat._
+
+  //ClassPath.split(sys.props("java.class.path")).sorted foreach println
 
   sys.props("application.home") = new File(".").getAbsolutePath
   sys.props("java.security.policy") = new File("hipchat.policy").getAbsolutePath
@@ -44,6 +49,11 @@ object Main extends App with LazyLogging {
     val password = configBots.as[String]("scala-bot.password")
     val enabled = configBots.as[Boolean]("scala-bot.enabled")
     val rooms = configBots.as[Seq[String]]("scala-bot.rooms")
+    val supportedDependencies = configBots.as[Seq[String]]("scala-bot.supported-dependencies")
+    val blacklist = configBots.as[Seq[String]]("scala-bot.blacklist")
+    val maxLines = configBots.as[Int]("scala-bot.max-lines")
+    val maxOutputLength = configBots.as[Int]("scala-bot.max-output-length")
+    val maxRunningTime = configBots.as[FiniteDuration]("scala-bot.max-running-time")
 
     val system = ActorSystem("xmpp")
 
@@ -53,10 +63,10 @@ object Main extends App with LazyLogging {
       hipchat ! Connect(HipChatConfiguration(host, port, userName, password))
 
       for (room <- rooms)
-        hipchat ! JoinRoom(room, nickName, mentionName, BotFactory[ScalaBot], Seq(true /*enableExclamation*/ , true /*announce*/))
+        hipchat ! JoinRoom(room, nickName, mentionName, BotFactory[ScalaBot], Seq(true /*enableExclamation*/, true /*announce*/, maxLines, maxOutputLength, maxRunningTime, supportedDependencies, blacklist))
     }
 
-    val scalaBot = BotFactory[ScalaBot].apply(Seq(false, false)).get
+    val scalaBot = BotFactory[ScalaBot].apply(Seq(false, false, maxLines, maxOutputLength, maxRunningTime, supportedDependencies, blacklist)).get
     scalaBot.initializeReceived(BotInitialize("", "", "console", None, None))
 
     println("Use :quit to exit the application.")

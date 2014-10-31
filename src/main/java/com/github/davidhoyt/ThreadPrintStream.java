@@ -27,6 +27,10 @@ public class ThreadPrintStream extends PrintStream {
         threadOut.setThreadOut(console);
     }
 
+    public static PrintStream getThreadLocalSystemOut() {
+        return out.get();
+    }
+
     public static void setThreadLocalSystemOut(final PrintStream newSystemOut) {
         out.set(newSystemOut);
     }

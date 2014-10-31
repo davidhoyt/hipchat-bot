@@ -3,12 +3,11 @@ package com.github.davidhoyt.scalabot
 import akka.actor.ActorRef
 import com.github.davidhoyt.Bot
 import com.typesafe.scalalogging.slf4j.LazyLogging
-
-
-//TODO: Time out if something takes too long (infinite loop for example)
+import scala.concurrent.duration.FiniteDuration
 
 object ScalaBot {
   val supportedCommands = Seq(
+    ":dependencies",
     ":implicits",
     //":javap",
     //":kind",
@@ -21,7 +20,7 @@ object ScalaBot {
   )
 }
 
-class ScalaBot(enableExclamation: Boolean, announce: Boolean) extends Bot with LazyLogging {
+class ScalaBot(enableExclamation: Boolean, announce: Boolean, maxLines: Int, maxOutputLength: Int, maxRunningTime: FiniteDuration, supportedDependencies: Seq[String], blacklist: Seq[String]) extends Bot with LazyLogging {
   import com.github.davidhoyt.hipchat.HipChat._
   import com.github.davidhoyt.{BotMessage, BotInitialize, BotMessageReceived}
   import ScalaBot._
@@ -35,14 +34,20 @@ class ScalaBot(enableExclamation: Boolean, announce: Boolean) extends Bot with L
 
   val help: String =
     """Available commands:
-      |  :implicits [-v]         show the implicits in scope
-      |  :toggleEcho             toggle echoing submitted code with syntax highlighting
-      |  :reset                  reset the repl to its initial state, forgetting all session entries
-      |  :warnings               show the suppressed warnings from the most recent line which had any
+      |  :dependencies       displays the list of supported dependencies for this bot
+      |  :implicits [-v]     show the implicits in scope
+      |  :toggleEcho         toggle echoing submitted code with syntax highlighting
+      |  :reset              reset the repl to its initial state, forgetting all session entries
+      |  :warnings           show the suppressed warnings from the most recent line which had any
     """.stripMargin.trim
 
   val unrecognizedCommand: String =
     "Unrecognized command.\n" + help
+
+  val dependencies: String =
+    s"""Supported dependencies:
+       |  ${supportedDependencies.mkString("\n  ")}
+     """.stripMargin
 
   def ltrim(value: String) =
     value.dropWhile(_ <= ' ')
@@ -53,7 +58,7 @@ class ScalaBot(enableExclamation: Boolean, announce: Boolean) extends Bot with L
       room = refRoom
       roomId = givenRoomId
       mentionName = givenMentionName
-      repl = new REPL(roomId)
+      repl = new REPL(roomId, maxLines, maxOutputLength, maxRunningTime, blacklist)
       repl.start()
       if (announce) {
         logger.info(s"Announcing Scala bot for $roomId")
@@ -75,6 +80,8 @@ class ScalaBot(enableExclamation: Boolean, announce: Boolean) extends Bot with L
     supportedCommands find message.startsWith match {
       case Some(command) if command == ":help" || command == "?" =>
         Seq(("/quote", help))
+      case Some(command) if command == ":dependencies" =>
+        Seq(("/quote", dependencies))
       case Some(command) if command == ":toggleEcho" =>
         toggleEcho = !toggleEcho
         Seq(("/quote", if (toggleEcho) "Echoing is now enabled." else "Echoing is now disabled."))

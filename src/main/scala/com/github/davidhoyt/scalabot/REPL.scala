@@ -1,37 +1,82 @@
 package com.github.davidhoyt.scalabot
 
-import java.io._
-
-import com.Ostermiller.util.CircularCharBuffer
-import com.github.davidhoyt.{WriterOutputStream, ThreadPrintStream, Security}
 import com.typesafe.scalalogging.slf4j.LazyLogging
+import scala.concurrent.duration._
 
-import scala.tools.nsc.Settings
-import scala.tools.nsc.interpreter._
+class REPL(val name: String, val maxLines: Int = 8, val maxLength: Int = 1500, val timeout: FiniteDuration = 10.seconds, val blacklist: Seq[String] = Seq()) extends LazyLogging {
+  import com.Ostermiller.util.CircularCharBuffer
+  import com.github.davidhoyt.{WriterOutputStream, ThreadPrintStream, Security}
+  import java.io._
+  import scala.tools.nsc.Settings
+  import scala.tools.nsc.interpreter._
+  import scala.tools.nsc.util.ClassPath
 
-class REPL(val name: String, val replPrompt: String = "") extends LazyLogging {
-  private[this] val inBuffer = new CircularCharBuffer(1024 * 1024)
-  private[this] val inReader = inBuffer.getReader
-  private[this] val inWriter = new BufferedWriter(inBuffer.getWriter)
-  private[this] val outBuffer = new CircularCharBuffer(CircularCharBuffer.INFINITE_SIZE)
+  private[this] val outBuffer = new CircularCharBuffer(maxLength)
   private[this] val outReader = outBuffer.getReader
   private[this] val outWriter = outBuffer.getWriter
-  private[this] val input = new BufferedReader(inReader)
+  private[this] val outPrintStream = new PrintStream(new WriterOutputStream(outWriter), true)
   private[this] val output = new JPrintWriter(outWriter, true)
-
-  private[this] val replLock = new AnyRef
-  private[this] var replInstance: ILoop = _
 
   private[this] val closingLock = new AnyRef
   private[this] var closing = false
-  
-  def processCode(code: String): String = {
-    outBuffer.clear()
-    inBuffer.clear()
 
-    inWriter.write(code)
-    inWriter.newLine()
-    inWriter.flush()
+  require(maxLength > 3)
+  require(maxLines > 0)
+
+  private[this] val classpath = {
+    //It's important this is done outside of settings() so that
+    //the SecurityManager is not potentially in place.
+    val javaHome = sys.props("java.home")
+    val filtered =
+      ClassPath.split(sys.props("java.class.path"))
+        .filterNot { entry =>
+          blacklist.exists(w => entry.endsWith(w))
+        }
+    ClassPath.join(filtered:_*)
+  }
+
+  import scala.tools.nsc.interpreter._
+  val interpreter = new IMain(settings, output)
+
+  def processCode(code: String): String = {
+    try {
+      outBuffer.clear()
+
+      val t = new Thread {
+        override def run(): Unit = {
+          try {
+            ThreadPrintStream.setThreadLocalSystemOut(outPrintStream)
+
+            Security.unprivileged {
+              interpreter.interpret(code) match {
+                case IR.Success => true
+                case _ => false
+              }
+            }
+          } catch {
+            case _: Throwable =>
+              output.println(s"[ERROR] Exception during evaluation or provided code is taking too long and was forcibly stopped.")
+              false
+          } finally {
+            output.write('\0')
+          }
+        }
+      }
+
+      t.setPriority(Thread.MIN_PRIORITY)
+      t.setDaemon(true)
+      t.setName(s"scala-interpreter-$name")
+      t.start()
+      t.join(timeout.toMillis)
+      if (t.isAlive)
+        t.stop()
+
+    } catch {
+      case t: Throwable =>
+        t.printStackTrace(output)
+        false
+    } finally {
+    }
 
     val charBuffer = new Array[Char](256)
     var read = 0
@@ -39,70 +84,46 @@ class REPL(val name: String, val replPrompt: String = "") extends LazyLogging {
     var done = false
     do {
       read = outReader.read(charBuffer)
-      if (read > replPrompt.size && charBuffer(read - 1 - replPrompt.size) == '\0') {
-        read = read - 1 - replPrompt.size
+      if (read > 0 && charBuffer(read - 1) == '\0') {
+        read = read - 1
         done = true
       }
       sb.appendAll(charBuffer, 0, read)
-    } while(read > 0 && !done)
-    if (sb.size < 10000)
-      sb.toString()
-    else
-      sb.take(10000 - "...".length).append("...").toString()
-  }
+    } while (read > 0 && !done)
 
-  private[this] def repl = replLock synchronized {
-    if (replInstance eq null)
-      newRepl
-    else
-      replInstance
-  }
+    //Ugly hack...
+    if (sb.startsWith("java.lang.ThreadDeath")) {
+      sb.clear()
+      sb.append(s"[ERROR] The provided code is taking too long and was forcibly stopped.\n")
+    }
 
-  private[this] def newRepl = replLock synchronized {
-    replInstance = new CustomILoop(input, output, replPrompt)
-    replInstance
+    val (reduced, needsEllipsis) =
+      if (sb.size < maxLength)
+        (sb, false)
+      else
+        (sb.take(maxLength - "...".length), true)
+
+    val lines = reduced.lines.take(maxLines).toSeq
+
+    val result = lines.mkString("\n")
+
+    if (needsEllipsis || lines.length == maxLines)
+      result + "..."
+    else
+      result
   }
 
   def settings = {
     val settings = new Settings()
     settings.Xnojline.value = true
     if (settings.classpath.isDefault)
-      settings.classpath.value = sys.props("java.class.path")
+      settings.classpath.value = classpath
     settings
-  }
-
-  private[this] val thread = {
-    val t = new Thread {
-      override def run(): Unit =
-        try {
-          ThreadPrintStream.setThreadLocalSystemOut(new PrintStream(new WriterOutputStream(outWriter), true))
-          var attempts = 0
-          while(!closing && attempts < 5) {
-            if (!Security.unprivileged(repl process settings)) {
-              attempts += 1
-              logger.error(s"Unable to initialize Scala interpreter (attempt #$attempts)")
-            } else {
-              attempts = 0
-            }
-          }
-        } catch {
-          case _: Throwable => ()
-        } finally {
-          inWriter.close()
-          outReader.close()
-          println("Exiting")
-        }
-    }
-    t.setDaemon(true)
-    t.setName(s"scala-repl-$name")
-    t
   }
 
   def start(): Boolean = closingLock synchronized {
     if (!closing) {
-      inBuffer.clear()
       outBuffer.clear()
-      thread.start()
     } else {
       throw new IllegalStateException(s"Attempted to restart a closed REPL instance")
     }
@@ -112,11 +133,7 @@ class REPL(val name: String, val replPrompt: String = "") extends LazyLogging {
   def close(): Unit = closingLock synchronized {
     if (!closing) {
       closing = true
-      inWriter.write(":quit")
-      inWriter.newLine()
-      inWriter.flush()
-      thread.interrupt()
-      thread.join()
+      outBuffer.clear()
     }
   }
 
