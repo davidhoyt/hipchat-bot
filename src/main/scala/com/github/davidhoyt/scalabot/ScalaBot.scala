@@ -8,12 +8,11 @@ import scala.concurrent.duration.FiniteDuration
 object ScalaBot {
   val supportedCommands = Seq(
     ":dependencies",
-    ":implicits",
     //":javap",
-    //":kind",
+    ":kind",
     ":reset",
     ":toggleEcho",
-    //":type",
+    ":type",
     ":warnings",
     ":help",
     "?"
@@ -35,9 +34,10 @@ class ScalaBot(enableExclamation: Boolean, announce: Boolean, maxLines: Int, max
   val help: String =
     """Available commands:
       |  :dependencies       displays the list of supported dependencies for this bot
-      |  :implicits [-v]     show the implicits in scope
+      |  :kind               display the kind of expression's type
       |  :toggleEcho         toggle echoing submitted code with syntax highlighting
       |  :reset              reset the repl to its initial state, forgetting all session entries
+      |  :type               display the type of an expression without evaluating it
       |  :warnings           show the suppressed warnings from the most recent line which had any
     """.stripMargin.trim
 
@@ -86,7 +86,7 @@ class ScalaBot(enableExclamation: Boolean, announce: Boolean, maxLines: Int, max
         toggleEcho = !toggleEcho
         Seq(("/quote", if (toggleEcho) "Echoing is now enabled." else "Echoing is now disabled."))
       case Some(command) =>
-        Seq(("/quote", repl.processCode(command)))
+        Seq(("/quote", repl.processCode(message)))
       case None if message.startsWith(":") =>
         Seq(("/quote", unrecognizedCommand))
       case None =>

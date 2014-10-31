@@ -46,6 +46,7 @@ grant codeBase "file:${user.home}/-" {
   permission java.lang.RuntimePermission "doUnchecked";
 
   permission java.net.SocketPermission "chat.hipchat.com:5222", "connect,resolve";
+  permission java.net.SocketPermission "localhost:7777", "listen,resolve";
 };
 
 grant codeBase "file:${application.home}/-" {
@@ -58,6 +59,7 @@ grant codeBase "file:${application.home}/-" {
   permission java.lang.RuntimePermission "doUnchecked";
 
   permission java.net.SocketPermission "chat.hipchat.com:5222", "connect,resolve";
+  permission java.net.SocketPermission "localhost:7777", "listen,resolve";
 };
 
 

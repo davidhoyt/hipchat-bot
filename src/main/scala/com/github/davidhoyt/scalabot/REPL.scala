@@ -2,8 +2,15 @@ package com.github.davidhoyt.scalabot
 
 import com.typesafe.scalalogging.slf4j.LazyLogging
 import scala.concurrent.duration._
+import scala.reflect._
+import scala.tools.nsc.interpreter.LoopCommands
+import scala.tools.nsc.interpreter.StdReplTags._
 
-class REPL(val name: String, val maxLines: Int = 8, val maxLength: Int = 1500, val timeout: FiniteDuration = 10.seconds, val blacklist: Seq[String] = Seq()) extends LazyLogging {
+class REPL(val name: String, val maxLines: Int = 8, val maxLength: Int = 1500, val timeout: FiniteDuration = 10.seconds, val blacklist: Seq[String] = Seq())
+  extends AnyRef
+  with LoopCommands
+  with LazyLogging {
+
   import com.Ostermiller.util.CircularCharBuffer
   import com.github.davidhoyt.{WriterOutputStream, ThreadPrintStream, Security}
   import java.io._
@@ -19,6 +26,8 @@ class REPL(val name: String, val maxLines: Int = 8, val maxLength: Int = 1500, v
 
   private[this] val closingLock = new AnyRef
   private[this] var closing = false
+
+  val out = output
 
   require(maxLength > 3)
   require(maxLines > 0)
@@ -38,6 +47,47 @@ class REPL(val name: String, val maxLines: Int = 8, val maxLength: Int = 1500, v
   import scala.tools.nsc.interpreter._
   val interpreter = new IMain(settings, output)
 
+  def echo(message: String): Unit = {
+    output println message
+    output.flush()
+  }
+
+  def resetCommand() {
+    echo("Resetting interpreter state.")
+    if (interpreter.namedDefinedTerms.nonEmpty)
+      echo("Forgetting all expression results and named terms: " + interpreter.namedDefinedTerms.mkString(", "))
+    if (interpreter.definedTypes.nonEmpty)
+      echo("Forgetting defined types: " + interpreter.definedTypes.mkString(", "))
+
+    interpreter.reset()
+    //Set the phase to "typer"
+    //interpreter beSilentDuring interpreter.setExecutionWrapper(pathToPhaseWrapper)
+  }
+
+  def warningsCommand(): Result = {
+    if (interpreter.lastWarnings.isEmpty)
+      "Can't find any cached warnings."
+    else
+      interpreter.lastWarnings foreach {
+        case (pos, msg) =>
+          interpreter.reporter.warning(pos, msg)
+      }
+  }
+
+  def typeCommand(line0: String): Result = {
+    line0.trim match {
+      case "" => ":type [-v] <expression>"
+      case s  => interpreter.typeCommandInternal(s stripPrefix "-v " trim, verbose = s startsWith "-v ")
+    }
+  }
+
+  def kindCommand(expr: String): Result = {
+    expr.trim match {
+      case "" => ":kind [-v] <expression>"
+      case s  => interpreter.kindCommandInternal(s stripPrefix "-v " trim, verbose = s startsWith "-v ")
+    }
+  }
+
   def processCode(code: String): String = {
     try {
       outBuffer.clear()
@@ -47,12 +97,14 @@ class REPL(val name: String, val maxLines: Int = 8, val maxLength: Int = 1500, v
           try {
             ThreadPrintStream.setThreadLocalSystemOut(outPrintStream)
 
-            Security.unprivileged {
-              interpreter.interpret(code) match {
-                case IR.Success => true
-                case _ => false
-              }
+            code match {
+              case command if command == ":reset" => resetCommand()
+              case command if command == ":warnings" => warningsCommand()
+              case command if command.startsWith(":type") => typeCommand(command.drop(":type".length))
+              case command if command.startsWith(":kind") => kindCommand(command.drop(":kind".length))
+              case block => Security.unprivileged(interpreter.interpret(block))
             }
+
           } catch {
             case _: Throwable =>
               output.println(s"[ERROR] Exception during evaluation or provided code is taking too long and was forcibly stopped.")
