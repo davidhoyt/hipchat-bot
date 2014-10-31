@@ -48,7 +48,7 @@ object Main extends App with LazyLogging {
     val userName = configBots.as[String]("scala-bot.username")
     val password = configBots.as[String]("scala-bot.password")
     val enabled = configBots.as[Boolean]("scala-bot.enabled")
-    val rooms = configBots.as[Seq[String]]("scala-bot.rooms")
+    val rooms = configBots.as[String]("scala-bot.rooms").split(',').map(_.trim).toSeq
     val supportedDependencies = configBots.as[Seq[String]]("scala-bot.supported-dependencies")
     val blacklist = configBots.as[Seq[String]]("scala-bot.blacklist")
     val maxLines = configBots.as[Int]("scala-bot.max-lines")

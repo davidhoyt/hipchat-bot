@@ -1,3 +1,9 @@
+import com.typesafe.sbt.SbtNativePackager._
+import com.typesafe.sbt.SbtNativePackager.packageArchetype
+import com.typesafe.sbt.packager.Keys._
+import com.typesafe.sbt.packager.archetypes.ServerLoader
+import com.typesafe.sbt.SbtNativePackager._
+import NativePackagerKeys._
 
 version := "1.0.0-SNAPSHOT"
 
@@ -46,3 +52,8 @@ libraryDependencies ++= Seq(
   "org.spire-math" %% "spire" % "0.8.2"
 )
 
+packageArchetype.java_server
+
+bashScriptConfigLocation := Some("${app_home}/../conf/jvmopts")
+
+mappings in Universal += (file("hipchat.policy"), "hipchat.policy")
