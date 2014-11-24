@@ -9,10 +9,10 @@ version := "1.0.0-SNAPSHOT"
 
 name := "hipchat-bot"
 
-scalaVersion := "2.11.2"
+scalaVersion := "2.11.4"
 
 val camelVersion = "2.14.0"
-val akkaVersion = "2.3.6"
+val akkaVersion = "2.3.7"
 
 resolvers += "Scalaz Bintray Repo" at "http://dl.bintray.com/scalaz/releases"
 
@@ -21,8 +21,8 @@ libraryDependencies ++= Seq(
   "org.igniterealtime.smack" % "smack-tcp" % "4.0.5",
   "org.igniterealtime.smack" % "smack-extensions" % "4.0.5",
   //
-  "org.scala-lang" % "scala-compiler" % "2.11.2",
-  "org.scala-lang" % "scala-reflect" % "2.11.2",
+  "org.scala-lang" % "scala-compiler" % "2.11.4",
+  "org.scala-lang" % "scala-reflect" % "2.11.4",
   //
   "org.wildfly.security" % "wildfly-security-manager" % "1.0.1.Final",
   "org.jboss.logging" % "jboss-logging" % "3.1.3.GA",
