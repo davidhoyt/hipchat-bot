@@ -2,7 +2,6 @@ package com.github.davidhoyt.scalabot
 
 import com.typesafe.scalalogging.slf4j.LazyLogging
 import scala.concurrent.duration._
-import scala.tools.nsc.NewLinePrintWriter
 
 class REPL(val name: String, val maxLines: Int = 8, val maxLength: Int = 1500, val timeout: FiniteDuration = 10.seconds, val blacklist: Seq[String] = Seq(), val runOnStartup: String = "")
   extends AnyRef
@@ -10,11 +9,11 @@ class REPL(val name: String, val maxLines: Int = 8, val maxLength: Int = 1500, v
 
   import com.github.davidhoyt.{WriterOutputStream, ThreadPrintStream, Security}
   import java.io._
-  import scala.tools.nsc.Settings
+  import scala.tools.nsc.{Settings, NewLinePrintWriter}
   import scala.tools.nsc.interpreter._
   import scala.tools.nsc.util.ClassPath
 
-  private[this] val writer = new java.io.StringWriter()
+  private[this] val writer = new StringWriter()
   private[this] val output = new JPrintWriter(writer)
   private[this] val outPrintStream = new PrintStream(new WriterOutputStream(writer), true)
 
@@ -89,6 +88,9 @@ class REPL(val name: String, val maxLines: Int = 8, val maxLength: Int = 1500, v
   }
 
   def processCode(code: String): String = {
+    var filterOutput: Option[String => String] = None
+    var forciblyStopped = false
+
     try {
       clearOutput()
 
@@ -102,7 +104,13 @@ class REPL(val name: String, val maxLines: Int = 8, val maxLength: Int = 1500, v
               case command if command == ":warnings" => warningsCommand()
               case command if command.startsWith(":type") => typeCommand(command.drop(":type".length))
               case command if command.startsWith(":kind") => kindCommand(command.drop(":kind".length))
-              case block => Security.unprivileged(interpreter.interpret(block))
+              case block =>
+                import Results._
+                Security.unprivileged(interpreter.interpret(block)) match {
+                  case Success => filterOutput = Some(out => out.replaceAll("(?m:^res[0-9]+: )", ""))
+                  case Error => filterOutput = Some(out => out.replaceAll("^<console>:[0-9]+: ", ""))
+                  case _ =>
+                }
             }
 
           } catch {
@@ -119,8 +127,10 @@ class REPL(val name: String, val maxLines: Int = 8, val maxLength: Int = 1500, v
       t.setName(s"scala-interpreter-$name")
       t.start()
       t.join(timeout.toMillis)
-      if (t.isAlive)
+      if (t.isAlive) {
+        forciblyStopped = true
         t.stop()
+      }
 
     } catch {
       case t: Throwable =>
@@ -128,10 +138,11 @@ class REPL(val name: String, val maxLines: Int = 8, val maxLength: Int = 1500, v
     } finally {
     }
 
-    val sb = new StringBuilder(writer.toString)
+    val out = writer.toString
+    val sb = new StringBuilder(filterOutput.getOrElse(identity[String]_)(out))
 
     //Ugly hack...
-    if (sb.startsWith("java.lang.ThreadDeath")) {
+    if (forciblyStopped || out.startsWith("java.lang.ThreadDeath")) {
       sb.clear()
       sb.append(s"[ERROR] The provided code is taking too long and was forcibly stopped.\n")
     }
