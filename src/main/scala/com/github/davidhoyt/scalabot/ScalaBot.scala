@@ -19,7 +19,7 @@ object ScalaBot {
   )
 }
 
-class ScalaBot(enableExclamation: Boolean, announce: Boolean, maxLines: Int, maxOutputLength: Int, maxRunningTime: FiniteDuration, supportedDependencies: Seq[String], blacklist: Seq[String]) extends Bot with LazyLogging {
+class ScalaBot(enableExclamation: Boolean, announce: Boolean, maxLines: Int, maxOutputLength: Int, maxRunningTime: FiniteDuration, supportedDependencies: Seq[String], blacklist: Seq[String], runOnStartup: String) extends Bot with LazyLogging {
   import com.github.davidhoyt.hipchat.HipChat._
   import com.github.davidhoyt.{BotMessage, BotInitialize, BotMessageReceived}
   import ScalaBot._
@@ -58,7 +58,7 @@ class ScalaBot(enableExclamation: Boolean, announce: Boolean, maxLines: Int, max
       room = refRoom
       roomId = givenRoomId
       mentionName = givenMentionName
-      repl = new REPL(roomId, maxLines, maxOutputLength, maxRunningTime, blacklist)
+      repl = new REPL(roomId, maxLines, maxOutputLength, maxRunningTime, blacklist, runOnStartup)
       repl.start()
       if (announce) {
         logger.info(s"Announcing Scala bot for $roomId")

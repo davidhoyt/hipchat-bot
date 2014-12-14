@@ -2,32 +2,24 @@ package com.github.davidhoyt.scalabot
 
 import com.typesafe.scalalogging.slf4j.LazyLogging
 import scala.concurrent.duration._
-import scala.reflect._
-import scala.tools.nsc.interpreter.LoopCommands
-import scala.tools.nsc.interpreter.StdReplTags._
+import scala.tools.nsc.NewLinePrintWriter
 
-class REPL(val name: String, val maxLines: Int = 8, val maxLength: Int = 1500, val timeout: FiniteDuration = 10.seconds, val blacklist: Seq[String] = Seq())
+class REPL(val name: String, val maxLines: Int = 8, val maxLength: Int = 1500, val timeout: FiniteDuration = 10.seconds, val blacklist: Seq[String] = Seq(), val runOnStartup: String = "")
   extends AnyRef
-  with LoopCommands
   with LazyLogging {
 
-  import com.Ostermiller.util.CircularCharBuffer
   import com.github.davidhoyt.{WriterOutputStream, ThreadPrintStream, Security}
   import java.io._
   import scala.tools.nsc.Settings
   import scala.tools.nsc.interpreter._
   import scala.tools.nsc.util.ClassPath
 
-  private[this] val outBuffer = new CircularCharBuffer(maxLength)
-  private[this] val outReader = outBuffer.getReader
-  private[this] val outWriter = outBuffer.getWriter
-  private[this] val outPrintStream = new PrintStream(new WriterOutputStream(outWriter), true)
-  private[this] val output = new JPrintWriter(outWriter, true)
+  private[this] val writer = new java.io.StringWriter()
+  private[this] val output = new JPrintWriter(writer)
+  private[this] val outPrintStream = new PrintStream(new WriterOutputStream(writer), true)
 
   private[this] val closingLock = new AnyRef
   private[this] var closing = false
-
-  val out = output
 
   require(maxLength > 3)
   require(maxLines > 0)
@@ -45,7 +37,15 @@ class REPL(val name: String, val maxLines: Int = 8, val maxLength: Int = 1500, v
   }
 
   import scala.tools.nsc.interpreter._
-  val interpreter = new IMain(settings, output)
+
+  val interpreter = {
+    val main = new IMain(settings, new NewLinePrintWriter(output, true))
+    main.quietRun(runOnStartup)
+    main
+  }
+
+  def clearOutput(): Unit =
+    writer.getBuffer.setLength(0)
 
   def echo(message: String): Unit = {
     output println message
@@ -60,13 +60,17 @@ class REPL(val name: String, val maxLines: Int = 8, val maxLength: Int = 1500, v
       echo("Forgetting defined types: " + interpreter.definedTypes.mkString(", "))
 
     interpreter.reset()
+
+    //Ensure we re-run startup code after clearing everything out.
+    interpreter.quietRun(runOnStartup)
+
     //Set the phase to "typer"
     //interpreter beSilentDuring interpreter.setExecutionWrapper(pathToPhaseWrapper)
   }
 
-  def warningsCommand(): Result = {
+  def warningsCommand(): Unit = {
     if (interpreter.lastWarnings.isEmpty)
-      "Can't find any cached warnings."
+      output.println("Can't find any cached warnings.")
     else
       interpreter.lastWarnings foreach {
         case (pos, msg) =>
@@ -74,23 +78,19 @@ class REPL(val name: String, val maxLines: Int = 8, val maxLength: Int = 1500, v
       }
   }
 
-  def typeCommand(line0: String): Result = {
-    line0.trim match {
-      case "" => ":type [-v] <expression>"
-      case s  => interpreter.typeCommandInternal(s stripPrefix "-v " trim, verbose = s startsWith "-v ")
-    }
+  def typeCommand(line0: String): Unit = {
+    val s = line0.trim
+    interpreter.typeCommandInternal(s stripPrefix "-v " trim, verbose = s startsWith "-v ")
   }
 
-  def kindCommand(expr: String): Result = {
-    expr.trim match {
-      case "" => ":kind [-v] <expression>"
-      case s  => interpreter.kindCommandInternal(s stripPrefix "-v " trim, verbose = s startsWith "-v ")
-    }
+  def kindCommand(expr: String): Unit = {
+    val s = expr.trim
+    interpreter.kindCommandInternal(s stripPrefix "-v " trim, verbose = s startsWith "-v ")
   }
 
   def processCode(code: String): String = {
     try {
-      outBuffer.clear()
+      clearOutput()
 
       val t = new Thread {
         override def run(): Unit = {
@@ -106,11 +106,10 @@ class REPL(val name: String, val maxLines: Int = 8, val maxLength: Int = 1500, v
             }
 
           } catch {
-            case _: Throwable =>
+            case t: Throwable =>
+              //t.printStackTrace(output)
               output.println(s"[ERROR] Exception during evaluation or provided code is taking too long and was forcibly stopped.")
-              false
           } finally {
-            output.write('\0')
           }
         }
       }
@@ -126,22 +125,10 @@ class REPL(val name: String, val maxLines: Int = 8, val maxLength: Int = 1500, v
     } catch {
       case t: Throwable =>
         t.printStackTrace(output)
-        false
     } finally {
     }
 
-    val charBuffer = new Array[Char](256)
-    var read = 0
-    val sb = new StringBuilder()
-    var done = false
-    do {
-      read = outReader.read(charBuffer)
-      if (read > 0 && charBuffer(read - 1) == '\0') {
-        read = read - 1
-        done = true
-      }
-      sb.appendAll(charBuffer, 0, read)
-    } while (read > 0 && !done)
+    val sb = new StringBuilder(writer.toString)
 
     //Ugly hack...
     if (sb.startsWith("java.lang.ThreadDeath")) {
@@ -159,6 +146,9 @@ class REPL(val name: String, val maxLines: Int = 8, val maxLength: Int = 1500, v
 
     val result = lines.mkString("\n")
 
+    sb.clear()
+    clearOutput()
+
     if (needsEllipsis || lines.length == maxLines)
       result + "..."
     else
@@ -170,12 +160,16 @@ class REPL(val name: String, val maxLines: Int = 8, val maxLength: Int = 1500, v
     settings.Xnojline.value = true
     if (settings.classpath.isDefault)
       settings.classpath.value = classpath
+
+    settings.deprecation.value = true
+    settings.feature.value = false
+
     settings
   }
 
   def start(): Boolean = closingLock synchronized {
     if (!closing) {
-      outBuffer.clear()
+      clearOutput()
     } else {
       throw new IllegalStateException(s"Attempted to restart a closed REPL instance")
     }
@@ -185,7 +179,7 @@ class REPL(val name: String, val maxLines: Int = 8, val maxLength: Int = 1500, v
   def close(): Unit = closingLock synchronized {
     if (!closing) {
       closing = true
-      outBuffer.clear()
+      clearOutput()
     }
   }
 

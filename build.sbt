@@ -31,7 +31,7 @@ libraryDependencies ++= Seq(
   //"org.apache.camel" % "camel-xmpp" % camelVersion,
   //"org.apache.camel" % "camel-scala" % camelVersion,
   "ch.qos.logback" % "logback-classic" % "1.1.2",
-  "io.reactivex" %% "rxscala" % "0.22.0",
+  "io.reactivex" %% "rxscala" % "0.23.0",
   "com.typesafe" % "config" % "1.2.1",
   "com.typesafe.scala-logging" %% "scala-logging-slf4j" % "2.1.2",
   "com.typesafe.akka" %% "akka-actor" % akkaVersion,
@@ -49,7 +49,9 @@ libraryDependencies ++= Seq(
   "org.typelevel" %% "shapeless-spire" % "0.3",
   "org.typelevel" %% "shapeless-scalaz" % "0.3",
   //
-  "org.spire-math" %% "spire" % "0.8.2"
+  "org.spire-math" %% "spire" % "0.8.2",
+  //
+  "org.scalacheck" %% "scalacheck" % "1.12.1"
 )
 
 packageArchetype.java_server

@@ -54,6 +54,7 @@ object Main extends App with LazyLogging {
     val maxLines = configBots.as[Int]("scala-bot.max-lines")
     val maxOutputLength = configBots.as[Int]("scala-bot.max-output-length")
     val maxRunningTime = configBots.as[FiniteDuration]("scala-bot.max-running-time")
+    val runOnStartup = configBots.as[String]("scala-bot.run-on-startup")
 
     val system = ActorSystem("xmpp")
 
@@ -63,19 +64,25 @@ object Main extends App with LazyLogging {
       hipchat ! Connect(HipChatConfiguration(host, port, userName, password))
 
       for (room <- rooms)
-        hipchat ! JoinRoom(room, nickName, mentionName, BotFactory[ScalaBot], Seq(true /*enableExclamation*/, true /*announce*/, maxLines, maxOutputLength, maxRunningTime, supportedDependencies, blacklist))
+        hipchat ! JoinRoom(room, nickName, mentionName, BotFactory[ScalaBot], Seq(true /*enableExclamation*/, true /*announce*/, maxLines, maxOutputLength, maxRunningTime, supportedDependencies, blacklist, runOnStartup))
     }
 
-    val scalaBot = BotFactory[ScalaBot].apply(Seq(false, false, maxLines, maxOutputLength, maxRunningTime, supportedDependencies, blacklist)).get
+    //Run a Scala bot on stdin for local testing purposes.
+    val scalaBot = BotFactory[ScalaBot].apply(Seq(false, false, maxLines, maxOutputLength, maxRunningTime, supportedDependencies, blacklist, runOnStartup)).get
     scalaBot.initializeReceived(BotInitialize("", "", "console", None, None))
 
     println("Use :quit to exit the application.")
     print("scala> ")
     var line = ""
-    while({line = Console.in.readLine(); line} != ":quit") {
-      val (_, reply) = scalaBot.process(line).last
-      println(reply)
-      print("scala> ")
+    try {
+      while(({line = Console.in.readLine(); line} ne null) && line != ":quit") {
+        val (_, reply) = scalaBot.process(line).last
+        println(reply)
+        print("scala> ")
+      }
+    } catch {
+      case t: Throwable =>
+        t.printStackTrace()
     }
 
     system.shutdown()
