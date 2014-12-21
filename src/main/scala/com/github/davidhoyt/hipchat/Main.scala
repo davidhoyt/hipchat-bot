@@ -1,25 +1,21 @@
 package com.github.davidhoyt.hipchat
 
-import java.io.File
-
-import com.github.davidhoyt.{ThreadPrintStream, Sandbox, BotInitialize}
-import com.typesafe.config.Config
 import com.typesafe.scalalogging.slf4j.LazyLogging
-
-import scala.concurrent.duration.FiniteDuration
-import scala.tools.nsc.util.ClassPath
 
 object Main extends App with LazyLogging {
   import akka.pattern.ask
   import akka.actor.ActorSystem
   import com.github.davidhoyt._
   import com.github.davidhoyt.scalabot.ScalaBot
-  import com.typesafe.config.ConfigFactory
+  import com.typesafe.config.{Config, ConfigFactory}
+  import java.io.File
   import net.ceedubs.ficus.Ficus._
   import scala.concurrent.{Await, Future}
   import scala.concurrent.duration._
   import scala.concurrent.ExecutionContext.Implicits.global
+  //import scala.tools.nsc.util.ClassPath
   import HipChat._
+  import Sandbox._
 
   @volatile var running = true
 

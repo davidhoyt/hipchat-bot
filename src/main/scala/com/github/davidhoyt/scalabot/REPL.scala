@@ -1,8 +1,5 @@
 package com.github.davidhoyt.scalabot
 
-import java.security.AccessControlException
-
-import com.github.davidhoyt.SecurityError
 import com.typesafe.scalalogging.slf4j.LazyLogging
 import scala.concurrent.duration._
 
@@ -15,13 +12,15 @@ class REPL(val name: String, val maxLines: Int = 8, val maxLength: Int = 1500, v
   import scala.tools.nsc.{Settings, NewLinePrintWriter}
   import scala.tools.nsc.interpreter._
   import scala.tools.nsc.util.ClassPath
+  import Sandbox._
 
-  private[this] val configuration = Sandbox.Configuration(
-    name      = s"scala-interpreter-$name",
-    timeout   = timeout,
-    maxLines  = maxLines,
-    maxLength = maxLength,
-    writer    = new StringWriter()
+  private[this] val configuration = Configuration(
+    name        = s"scala-interpreter-$name",
+    timeout     = timeout,
+    maxLines    = maxLines,
+    maxLength   = maxLength,
+    writer      = new StringWriter(),
+    permissions = new File("scalabot-sandbox.policy")
   )
 
   import configuration.output
@@ -44,6 +43,7 @@ class REPL(val name: String, val maxLines: Int = 8, val maxLength: Int = 1500, v
   val interpreter = {
     val main = new IMain(settings, new NewLinePrintWriter(output, true))
     main.quietRun(runOnStartup)
+    main.isettings.maxPrintString = maxLength
     main
   }
 

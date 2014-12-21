@@ -19,7 +19,7 @@ grant {
 
    permission java.io.FilePermission "${java.home}/../-", "read";
 
-   permission java.io.FilePermission "/Applications/IntelliJ IDEA 13.app/Contents/lib/idea_rt.jar", "read";
+   permission java.io.FilePermission "/Applications/IntelliJ IDEA 14.app/Contents/lib/idea_rt.jar", "read";
 };
 
 
@@ -34,34 +34,41 @@ grant {
    //List(permission java.lang.RuntimePermission "queuePrintJob";
    //permission java.net.SocketPermission "*", "connect";
    permission java.lang.RuntimePermission "accessClassInPackage.*";
+   permission java.net.NetPermission "specifyStreamHandler";
 };
 
-grant codeBase "file:${user.home}/-" {
-  permission java.io.FilePermission "${user.home}/-", "read";
-  permission java.io.FilePermission "${application.home}/-", "read";
-  permission java.util.PropertyPermission "*","read,write";
-  permission java.lang.RuntimePermission "getenv.*";
-  permission java.lang.RuntimePermission "createClassLoader";
-  permission java.lang.RuntimePermission "modifyThread";
-  permission java.lang.RuntimePermission "doUnchecked";
-  permission java.net.NetPermission "specifyStreamHandler";
-
-  permission java.net.SocketPermission "chat.hipchat.com:5222", "connect,resolve";
-  permission java.net.SocketPermission "localhost:7777", "listen,resolve";
-};
-
-grant codeBase "file:${application.home}/-" {
-  permission java.io.FilePermission "${user.home}/-", "read";
-  permission java.io.FilePermission "${application.home}/-", "read";
-  permission java.util.PropertyPermission "*","read,write";
-  permission java.lang.RuntimePermission "getenv.*";
-  permission java.lang.RuntimePermission "createClassLoader";
-  permission java.lang.RuntimePermission "modifyThread";
-  permission java.lang.RuntimePermission "doUnchecked";
-  permission java.net.NetPermission "specifyStreamHandler";
-
-  permission java.net.SocketPermission "chat.hipchat.com:5222", "connect,resolve";
-  permission java.net.SocketPermission "localhost:7777", "listen,resolve";
-};
+//grant codeBase "file:${user.home}/-" {
+//  permission java.io.FilePermission "/tmp/-", "read,write";
+//  permission java.io.FilePermission "${user.home}/-", "read";
+//  permission java.io.FilePermission "${application.home}/-", "read";
+//  permission java.util.PropertyPermission "*","read,write";
+//  permission java.lang.RuntimePermission "getenv.*";
+//  permission java.lang.RuntimePermission "createClassLoader";
+//  permission java.lang.RuntimePermission "modifyThread";
+//  permission java.lang.RuntimePermission "doUnchecked";
+//  permission java.net.NetPermission "specifyStreamHandler";
+//
+//  permission java.util.logging.LoggingPermission "control";
+//
+//  permission java.net.SocketPermission "chat.hipchat.com:5222", "connect,resolve";
+//  permission java.net.SocketPermission "localhost:7777", "listen,resolve";
+//};
+//
+//grant codeBase "file:${application.home}/-" {
+//  permission java.io.FilePermission "/tmp/-", "read,write";
+//  permission java.io.FilePermission "${user.home}/-", "read";
+//  permission java.io.FilePermission "${application.home}/-", "read";
+//  permission java.util.PropertyPermission "*","read,write";
+//  permission java.lang.RuntimePermission "getenv.*";
+//  permission java.lang.RuntimePermission "createClassLoader";
+//  permission java.lang.RuntimePermission "modifyThread";
+//  permission java.lang.RuntimePermission "doUnchecked";
+//  permission java.net.NetPermission "specifyStreamHandler";
+//
+//  permission java.util.logging.LoggingPermission "control";
+//
+//  permission java.net.SocketPermission "chat.hipchat.com:5222", "connect,resolve";
+//  permission java.net.SocketPermission "localhost:7777", "listen,resolve";
+//};
 
 

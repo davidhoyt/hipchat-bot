@@ -78,8 +78,8 @@ class HipChatActor extends Actor with ActorLogging {
       log.warning("Received unexpected message {}", other)
   }
 
-  @scala.throws[Exception](classOf[Exception])
-  override def postStop(): Unit = Sandbox.privileged {
+  @throws[Exception](classOf[Exception])
+  override def postStop(): Unit = {
     if ((connection ne null) && connection.isConnected)
       connection.disconnect(presenceFor(Away))
     xmpp.connection = None

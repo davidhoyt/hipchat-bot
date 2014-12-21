@@ -1,0 +1,65 @@
+
+//Permissions for the sandbox.
+grant {
+  permission java.util.PropertyPermission "line.separator","read";
+
+  permission java.util.PropertyPermission "java.specification.version","read";
+  permission java.util.PropertyPermission "scala.*","read";
+  permission java.util.PropertyPermission "scalac.*","read";
+
+  permission java.net.NetPermission "specifyStreamHandler";
+
+  permission java.lang.reflect.ReflectPermission "suppressAccessChecks";
+
+  permission java.lang.RuntimePermission "getClassLoader";
+  permission java.lang.RuntimePermission "setContextClassLoader";
+  permission java.lang.RuntimePermission "accessDeclaredMembers";
+  permission java.lang.RuntimePermission "createClassLoader";
+
+
+
+  //permission java.lang.RuntimePermission "createThread";
+
+  permission java.io.FilePermission "${java.home}/../-", "read";
+  permission java.io.FilePermission "${application.home}/-", "read";
+  permission java.io.FilePermission "${user.home}/-", "read";
+  permission java.io.FilePermission "/tmp/-", "read,write";
+
+  //permission java.io.FilePermission "/System/Library/Java/Extensions/-", "read";
+  //permission java.io.FilePermission "/Applications/IntelliJ IDEA 14.app/Contents/lib/idea_rt.jar", "read";
+};
+
+//Trusted core Java code
+grant codeBase "file:${java.home}/../-" {
+   permission java.security.AllPermission;
+};
+
+grant codeBase "file:${user.home}/-" {
+  permission java.util.PropertyPermission "java.specification.version","read";
+  permission java.util.PropertyPermission "scala.*","read";
+  permission java.util.PropertyPermission "scalac.*","read";
+
+  permission java.net.NetPermission "specifyStreamHandler";
+
+  permission java.lang.reflect.ReflectPermission "suppressAccessChecks";
+
+  permission java.lang.RuntimePermission "getClassLoader";
+  permission java.lang.RuntimePermission "setContextClassLoader";
+  permission java.lang.RuntimePermission "accessDeclaredMembers";
+  permission java.lang.RuntimePermission "createClassLoader";
+};
+
+grant codeBase "file:${application.home}/-" {
+  permission java.util.PropertyPermission "java.specification.version","read";
+  permission java.util.PropertyPermission "scala.*","read";
+  permission java.util.PropertyPermission "scalac.*","read";
+
+  permission java.net.NetPermission "specifyStreamHandler";
+
+  permission java.lang.reflect.ReflectPermission "suppressAccessChecks";
+
+  permission java.lang.RuntimePermission "getClassLoader";
+  permission java.lang.RuntimePermission "setContextClassLoader";
+  permission java.lang.RuntimePermission "accessDeclaredMembers";
+  permission java.lang.RuntimePermission "createClassLoader";
+};

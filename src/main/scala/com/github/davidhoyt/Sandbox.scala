@@ -1,12 +1,16 @@
 package com.github.davidhoyt
 
-import java.security.{AccessController, PrivilegedAction}
+import java.security.{SecureClassLoader, ProtectionDomain}
+
 
 object Sandbox {
-  import java.io.{PrintStream, Writer, StringWriter, PrintWriter => JPrintWriter}
+  import java.io.{File, PrintStream, StringWriter, PrintWriter => JPrintWriter}
+  import java.net.URL
+  import java.security.PermissionCollection
   import scala.concurrent.duration._
+  import scala.language.implicitConversions
 
-  case class Configuration(name: String, trimOutput: Boolean = true, maxLines: Int = 8, maxLength: Int = 1500, timeout: FiniteDuration = 10.seconds, writer: StringWriter = new StringWriter()) {
+  case class Configuration(name: String, trimOutput: Boolean = true, maxLines: Int = 8, maxLength: Int = 1500, timeout: FiniteDuration = 10.seconds, writer: StringWriter = new StringWriter(), permissions: PermissionCollection = new ReadWritePermissionCollection) {
     require(maxLength > 3)
     require(maxLines > 0)
 
@@ -18,47 +22,34 @@ object Sandbox {
     }
   }
 
-  def install(): Unit = {
-    import java.io.FilePermission
-    import java.lang.reflect.ReflectPermission
-    import java.net.NetPermission
-    import java.util.PropertyPermission
+  implicit def fileToPermissions(policy: File): PermissionCollection =
+    urlToPermissions(policy.toURI.toURL)
 
-//    import sun.security.provider.PolicyFile
-//    import sun.security.provider.PolicyParser
+  implicit def urlToPermissions(policy: URL): PermissionCollection = {
+    import java.security.CodeSource
+    import java.security.cert.Certificate
+    import sun.security.provider.PolicyFile
 
-    val perms = new MyPermissionCollection()
-    //perms.add(new PropertyPermission("*", "read"))
-    perms.add(new PropertyPermission("line.separator", "read"))
-    perms.add(new PropertyPermission("java.specification.version", "read"))
-    perms.add(new PropertyPermission("scala.*", "read"))
-    perms.add(new PropertyPermission("scalac.*", "read"))
-    perms.add(new FilePermission("<<ALL FILES>>", "read"))
-    perms.add(new NetPermission("specifyStreamHandler"))
-    perms.add(new RuntimePermission("getClassLoader"))
-    perms.add(new RuntimePermission("setContextClassLoader"))
-    perms.add(new ReflectPermission("suppressAccessChecks"))
-    perms.add(new RuntimePermission("accessDeclaredMembers"))
-    perms.add(new RuntimePermission("createClassLoader"))
+    val sandboxPolicy = new PolicyFile(policy)
 
-    //perms.add(new RuntimePermission("createThread"))
-
-    System.setSecurityManager(new SandboxSecurityManager(false, perms))
+    val sandboxPermissions = sandboxPolicy.getPermissions(new CodeSource(null, null.asInstanceOf[Array[Certificate]]))
+    sandboxPermissions
   }
 
-  def enableForThisThread(): Unit =
-    System.getSecurityManager.asInstanceOf[SandboxSecurityManager].enable()
+  private[this] def createDefaultPermissions: PermissionCollection = {
+    import java.security.AllPermission
 
-  def disableForThisThread(): Unit =
-    System.getSecurityManager.asInstanceOf[SandboxSecurityManager].disable()
+    val p = new ReadWritePermissionCollection
+    p.add(SandboxSecurityManager.CHANGE_SANDBOX_PERMISSIONS)
+    p.add(new AllPermission())
+    p
+  }
 
-  def privileged[T](work: => T): T =
-    AccessController.doPrivileged(new PrivilegedAction[T] {
-      override def run(): T = work
-    })
+  def install(defaultPermissions: PermissionCollection = createDefaultPermissions): Unit =
+    System.setSecurityManager(new SandboxSecurityManager(defaultPermissions))
 
-  def unprivileged[T](work: => T): T =
-    work
+  def changePermissionsForCurrentThread(permissions: PermissionCollection): Unit =
+    System.getSecurityManager.asInstanceOf[SandboxSecurityManager].changePermissions(permissions)
 
   def apply[T](configuration: Configuration)(work: => T): (Option[T], String) = {
     import configuration._
@@ -73,7 +64,8 @@ object Sandbox {
         override def run(): Unit = {
           try {
             ThreadPrintStream.setThreadLocalSystemOut(outPrintStream)
-            enableForThisThread()
+            //Thread.currentThread().setContextClassLoader(new SecureClassLoader() {})
+            changePermissionsForCurrentThread(permissions)
 
             workResult = Some(work)
 
@@ -110,12 +102,12 @@ object Sandbox {
     val sb = new StringBuilder(out) //filterOutput.getOrElse(identity[String]_)(out))
 
     //Ugly hack...
-    if (forciblyStopped || out.startsWith("java.lang.ThreadDeath")) {
+    if (forciblyStopped || out.contains("java.lang.ThreadDeath")) {
       sb.clear()
       sb.append(s"[ERROR] The provided code is taking too long and was forcibly stopped.\n")
     }
 
-    if (out.startsWith("com.github.davidhoyt.SecurityError")) {
+    if (out.contains("com.github.davidhoyt.SecurityError")) {
       sb.clear()
       sb.append(s"[ERROR] You do not have sufficient privileges to execute the provided code.\n")
     }

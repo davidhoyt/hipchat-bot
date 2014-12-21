@@ -1,0 +1,12 @@
+
+import scala.sys.process._ ; import scala.concurrent._ ; import ExecutionContext.Implicits.global ; import com.github.davidhoyt._ ; val perms = new ReadWritePermissionCollection ; perms.add(SandboxSecurityManager.CHANGE_SANDBOX_PERMISSIONS) ; perms.add(new java.security.AllPermission) ; Future { Sandbox.changePermissionsForCurrentThread(perms); println("ls".!!) }
+
+new Thread {}
+
+sys.exit(0)
+
+import scala.sys.process._ ; "ls".!!
+
+scala.io.Source.fromFile("/etc/hosts").mkString
+
+import scala.sys.process._ ; import scala.concurrent._ ; import ExecutionContext.Implicits.global ; Future { println("ls".!!) }

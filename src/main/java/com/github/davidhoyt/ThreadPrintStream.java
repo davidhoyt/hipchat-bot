@@ -7,68 +7,90 @@ package com.github.davidhoyt;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 
-/** A ThreadPrintStream replaces the normal System.out and ensures
+/**
+ * A ThreadPrintStream replaces the normal System.out and ensures
  * that output to System.out goes to a different PrintStream for
  * each thread.  It does this by using ThreadLocal to maintain a
- * PrintStream for each thread. */
+ * PrintStream for each thread.
+ */
 public class ThreadPrintStream extends PrintStream {
-    // Save the existing System.out
-    public static final PrintStream stdout = System.out;
-    public static final PrintStream stderr = System.err;
+  // Save the existing System.out
+  public static final PrintStream stdout = System.out;
+  public static final PrintStream stderr = System.err;
 
-    /** Changes System.out to a ThreadPrintStream which will
-     * send output to a separate file for each thread. */
-    public static void replaceSystemOut() {
+  /**
+   * Changes System.out to a ThreadPrintStream which will
+   * send output to a separate file for each thread.
+   */
+  public static void replaceSystemOut() {
 
-        // Create a ThreadPrintStream and install it as System.out
-        final ThreadPrintStream threadStdOut = new ThreadPrintStream();
-        System.setOut(threadStdOut);
-        System.setErr(threadStdOut);
+    // Create a ThreadPrintStream and install it as System.out
+    final ThreadPrintStream threadStdOut = new ThreadPrintStream();
+    System.setOut(threadStdOut);
+    System.setErr(threadStdOut);
 
-        // Use the original System.out as the current thread's System.out
-        threadStdOut.setThreadOut(stdout);
+    // Use the original System.out as the current thread's System.out
+    threadStdOut.setThreadOut(stdout);
+  }
+
+  public static PrintStream getThreadLocalSystemOut() {
+    return out.get();
+  }
+
+  public static void setThreadLocalSystemOut(final PrintStream newSystemOut) {
+    out.set(newSystemOut);
+  }
+
+  /**
+   * Thread specific storage to hold a PrintStream for each thread
+   */
+  private static final InheritableThreadLocal<PrintStream> out = new InheritableThreadLocal<PrintStream>() {
+    @Override
+    protected PrintStream initialValue() {
+      return stdout;
     }
+  };
 
-    public static PrintStream getThreadLocalSystemOut() {
-        return out.get();
-    }
+  private ThreadPrintStream() {
+    super(new ByteArrayOutputStream(0));
+  }
 
-    public static void setThreadLocalSystemOut(final PrintStream newSystemOut) {
-        out.set(newSystemOut);
-    }
+  /**
+   * Sets the PrintStream for the currently executing thread.
+   */
+  public void setThreadOut(PrintStream out) {
+    this.out.set(out);
+  }
 
-    /** Thread specific storage to hold a PrintStream for each thread */
-    private static final InheritableThreadLocal<PrintStream> out = new InheritableThreadLocal<PrintStream>() {
-        @Override
-        protected PrintStream initialValue() {
-            return stdout;
-        }
-    };
+  /**
+   * Returns the PrintStream for the currently executing thread.
+   */
+  public PrintStream getThreadOut() {
+    return this.out.get();
+  }
 
-    private ThreadPrintStream() {
-        super(new ByteArrayOutputStream(0));
-    }
+  @Override
+  public boolean checkError() {
+    return getThreadOut().checkError();
+  }
 
-    /** Sets the PrintStream for the currently executing thread. */
-    public void setThreadOut(PrintStream out) {
-        this.out.set(out);
-    }
+  @Override
+  public void write(byte[] buf, int off, int len) {
+    getThreadOut().write(buf, off, len);
+  }
 
-    /** Returns the PrintStream for the currently executing thread. */
-    public PrintStream getThreadOut() {
-        return this.out.get();
-    }
+  @Override
+  public void write(int b) {
+    getThreadOut().write(b);
+  }
 
-    @Override public boolean checkError() {
-        return getThreadOut().checkError();
-    }
+  @Override
+  public void flush() {
+    getThreadOut().flush();
+  }
 
-    @Override public void write(byte[] buf, int off, int len) {
-        getThreadOut().write(buf, off, len);
-    }
-
-    @Override public void write(int b) { getThreadOut().write(b); }
-
-    @Override public void flush() { getThreadOut().flush(); }
-    @Override public void close() { getThreadOut().close(); }
+  @Override
+  public void close() {
+    getThreadOut().close();
+  }
 }
