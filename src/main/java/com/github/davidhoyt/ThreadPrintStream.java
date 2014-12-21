@@ -13,18 +13,20 @@ import java.io.PrintStream;
  * PrintStream for each thread. */
 public class ThreadPrintStream extends PrintStream {
     // Save the existing System.out
-    public static final PrintStream console = System.out;
+    public static final PrintStream stdout = System.out;
+    public static final PrintStream stderr = System.err;
 
     /** Changes System.out to a ThreadPrintStream which will
      * send output to a separate file for each thread. */
     public static void replaceSystemOut() {
 
         // Create a ThreadPrintStream and install it as System.out
-        ThreadPrintStream threadOut = new ThreadPrintStream();
-        System.setOut(threadOut);
+        final ThreadPrintStream threadStdOut = new ThreadPrintStream();
+        System.setOut(threadStdOut);
+        System.setErr(threadStdOut);
 
         // Use the original System.out as the current thread's System.out
-        threadOut.setThreadOut(console);
+        threadStdOut.setThreadOut(stdout);
     }
 
     public static PrintStream getThreadLocalSystemOut() {
@@ -39,7 +41,7 @@ public class ThreadPrintStream extends PrintStream {
     private static final InheritableThreadLocal<PrintStream> out = new InheritableThreadLocal<PrintStream>() {
         @Override
         protected PrintStream initialValue() {
-            return console;
+            return stdout;
         }
     };
 

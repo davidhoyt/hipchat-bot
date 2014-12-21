@@ -3,10 +3,13 @@ package com.github.davidhoyt.hipchat
 import com.github.davidhoyt.{BotFactory, Bot}
 
 object HipChat {
+  import akka.actor.ActorRef
+
   case class HipChatConfiguration(host: String, port: Int, userName: String, password: String)
   case class Connect(configuration: HipChatConfiguration)
-  case class JoinRoom[T <: Bot](roomId: String, nickName: String, mentionName: String, botFactory: BotFactory[T], args: Seq[Any] = Seq())
+  case class JoinRoom[T <: Bot](roomId: String, nickName: String, mentionName: String, botFactory: BotFactory[T], args: Seq[Any] = Seq(), recipient: Option[ActorRef] = None)
   case class StatusUpdate(update: Status, status: String = "")
+  case class RoomJoinedComplete(roomId: String, success: Boolean)
   case class MessageReceived(from: String, message: String)
   case object KeepAlive
 

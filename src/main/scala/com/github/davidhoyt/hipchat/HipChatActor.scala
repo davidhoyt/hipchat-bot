@@ -4,6 +4,7 @@ import akka.actor._
 
 class HipChatActor extends Actor with ActorLogging {
   import com.github.davidhoyt.xmpp.Xmpp
+  import com.github.davidhoyt.Sandbox
   import org.jivesoftware.smack.ConnectionConfiguration.SecurityMode
   import org.jivesoftware.smack._
   import org.jivesoftware.smack.packet.Presence
@@ -78,7 +79,7 @@ class HipChatActor extends Actor with ActorLogging {
   }
 
   @scala.throws[Exception](classOf[Exception])
-  override def postStop(): Unit = {
+  override def postStop(): Unit = Sandbox.privileged {
     if ((connection ne null) && connection.isConnected)
       connection.disconnect(presenceFor(Away))
     xmpp.connection = None
@@ -86,8 +87,8 @@ class HipChatActor extends Actor with ActorLogging {
   }
 
   def connected: Receive = {
-    case join @ JoinRoom(roomId, _, _, _, _) =>
-      context.actorOf(HipChatRoom.props, roomId) ! join
+    case join @ JoinRoom(roomId, _, _, _, _, recipient) =>
+      context.actorOf(HipChatRoom.props, roomId) ! join.copy(recipient = recipient.orElse(Some(sender())))
 
     case StatusUpdate(update, status) =>
       xmpp.connection map (_.sendPacket(presenceFor(update, status)))

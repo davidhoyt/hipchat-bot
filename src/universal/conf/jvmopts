@@ -1,4 +1,4 @@
--Denv=dev
+-Denv=prod
 -J-server
 -J-Xms4096m
 -J-Xmx4096m

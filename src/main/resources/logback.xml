@@ -1,0 +1,43 @@
+<configuration scan="true">
+    <property name="LOG_NAME" value="${LOG_NAME:-hipchat-bot}" />
+    <property name="LOG_HOME" value="${LOG_HOME:-/var/log}" />
+    <property name="LOG_DIR" value="${LOG_DIR:-${LOG_HOME}/${LOG_NAME}}" />
+
+    <!-- to vastly improve performance of jul-to-sl4j.
+    See: http://logback.qos.ch/manual/configuration.html#LevelChangePropagator -->
+    <contextListener class="ch.qos.logback.classic.jul.LevelChangePropagator">
+        <resetJUL>true</resetJUL>
+    </contextListener>
+
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <!--
+         encoders are assigned the type ch.qos.logback.classic.encoder.PatternLayoutEncoder
+          by default
+        -->
+        <encoder>
+            <pattern>
+                %date{"yyyy-MM-dd HH:mm:ss,SSS z",GMT} %-7([%level]) %.-30(${HOSTNAME}) [%thread] %logger{50} {%mdc} - %msg%n
+            </pattern>
+        </encoder>
+    </appender>
+
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/${LOG_NAME}.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!-- daily rollover -->
+            <fileNamePattern>${LOG_DIR}/${LOG_NAME}.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <!-- keep 30 days' worth of history -->
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>
+                %date{"yyyy-MM-dd HH:mm:ss,SSS z",GMT} %-7([%level]) %.-30(${HOSTNAME}) [%thread] %logger{50} {%mdc} - %msg%n
+            </pattern>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT" />
+        <appender-ref ref="FILE" />
+    </root>
+</configuration>

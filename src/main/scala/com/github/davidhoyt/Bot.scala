@@ -1,7 +1,7 @@
 package com.github.davidhoyt
 
 import akka.actor.ActorRef
-import com.typesafe.scalalogging.Logging
+import com.typesafe.scalalogging.slf4j.StrictLogging
 
 case class BotInitialize(nickName: String, mentionName: String, roomId: String, hipchat: Option[ActorRef], room: Option[ActorRef])
 case class BotMessageReceived(from: String, message: String)
@@ -11,7 +11,7 @@ case class BotMessage(message: String)
  * Guaranteed to process messages sequentially and in a thread-safe manner.
  * Therefore mutable state is acceptable. It is effectively an actor.
  */
-trait Bot { self: Logging =>
+trait Bot extends StrictLogging {
   type InitializeReceived = PartialFunction[BotInitialize, Unit]
   type MessageReceived = PartialFunction[BotMessageReceived, Seq[BotMessage]]
 
@@ -33,6 +33,7 @@ trait BotFactory[T <: Bot] {
 }
 
 object BotFactory {
+  import scala.language.implicitConversions
   import scala.reflect.runtime.universe._
 
   /**

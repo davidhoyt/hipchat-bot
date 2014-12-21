@@ -28,7 +28,7 @@ class HipChatRoomActor extends Actor with ActorLogging {
   var bot: Option[Bot] = None
 
   override def receive: Receive = {
-    case JoinRoom(roomId, joinNickName, joinMentionName, joinBotFactory, joinBotArgs) =>
+    case JoinRoom(roomId, joinNickName, joinMentionName, joinBotFactory, joinBotArgs, joinRecipient) =>
       log.info("Joining room {} with {}/@{}", roomId, joinNickName, joinMentionName)
 
       val fullRoomId = s"$roomId@conf.hipchat.com"
@@ -66,9 +66,12 @@ class HipChatRoomActor extends Actor with ActorLogging {
           muc.toObservable foreach { msg =>
             myself ! MessageReceived(msg.getFrom, Option(msg.getBody).getOrElse(""))
           }
+
+          joinRecipient foreach (_ ! RoomJoinedComplete(roomId, success = true))
         } catch {
           case NonFatal(t) =>
             log.error(t, s"Unable to join room $roomId")
+            joinRecipient foreach (_ ! RoomJoinedComplete(roomId, success = false))
         }
       }
     case other =>

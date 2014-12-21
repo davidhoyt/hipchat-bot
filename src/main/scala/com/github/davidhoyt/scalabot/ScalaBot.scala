@@ -19,7 +19,7 @@ object ScalaBot {
   )
 }
 
-class ScalaBot(enableExclamation: Boolean, announce: Boolean, maxLines: Int, maxOutputLength: Int, maxRunningTime: FiniteDuration, supportedDependencies: Seq[String], blacklist: Seq[String], runOnStartup: String) extends Bot with LazyLogging {
+class ScalaBot(enableExclamation: Boolean, announce: Boolean, maxLines: Int, maxOutputLength: Int, maxRunningTime: FiniteDuration, supportedDependencies: Seq[String], blacklist: Seq[String], runOnStartup: String) extends Bot {
   import com.github.davidhoyt.hipchat.HipChat._
   import com.github.davidhoyt.{BotMessage, BotInitialize, BotMessageReceived}
   import ScalaBot._
@@ -29,7 +29,7 @@ class ScalaBot(enableExclamation: Boolean, announce: Boolean, maxLines: Int, max
   var roomId: String = _
   var repl: REPL = _
   var mentionName: String = _
-  var toggleEcho = true
+  var toggleEcho = false
 
   val help: String =
     """Available commands:
