@@ -58,4 +58,4 @@ packageArchetype.java_server
 
 bashScriptConfigLocation := Some("${app_home}/../conf/jvmopts")
 
-mappings in Universal += (file("scalabot-sandbox.policy"), "scalabox-sandbox.policy")
+mappings in Universal += (file("scalabot-sandbox.policy"), "scalabot-sandbox.policy")
