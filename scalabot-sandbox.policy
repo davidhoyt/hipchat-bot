@@ -25,8 +25,8 @@ grant {
   permission java.io.FilePermission "${user.home}/-", "read";
   permission java.io.FilePermission "/tmp/-", "read,write";
 
-  //permission java.io.FilePermission "/System/Library/Java/Extensions/-", "read";
-  //permission java.io.FilePermission "/Applications/IntelliJ IDEA 14.app/Contents/lib/idea_rt.jar", "read";
+  permission java.io.FilePermission "/System/Library/Java/Extensions/-", "read";
+  permission java.io.FilePermission "/Applications/IntelliJ IDEA 14.app/Contents/lib/idea_rt.jar", "read";
 };
 
 //Trusted core Java code

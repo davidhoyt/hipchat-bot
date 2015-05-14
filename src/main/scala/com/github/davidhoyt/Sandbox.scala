@@ -1,8 +1,5 @@
 package com.github.davidhoyt
 
-import java.security.{SecureClassLoader, ProtectionDomain}
-
-
 object Sandbox {
   import java.io.{File, PrintStream, StringWriter, PrintWriter => JPrintWriter}
   import java.net.URL
@@ -49,7 +46,7 @@ object Sandbox {
     System.setSecurityManager(new SandboxSecurityManager(defaultPermissions))
 
   def changePermissionsForCurrentThread(permissions: PermissionCollection): Unit =
-    System.getSecurityManager.asInstanceOf[SandboxSecurityManager].changePermissions(permissions)
+    Option(System.getSecurityManager).foreach(_.asInstanceOf[SandboxSecurityManager].changePermissions(permissions))
 
   def apply[T](configuration: Configuration)(work: => T): (Option[T], String) = {
     import configuration._
@@ -70,11 +67,15 @@ object Sandbox {
             workResult = Some(work)
 
           } catch {
-            case sec: SecurityError =>
-              sec.getCause.printStackTrace(output)
-              output.println(s"[ERROR] You do not have sufficient privileges to execute the provided code.\n")
+//            case sec: SecurityError =>
+//
+//              sec.printStackTrace(output)
+//              //Option(sec.getCause).foreach(_.printStackTrace(output))
+//              output.println(sec.getMessage + "\n") // s"[ERROR] You do not have sufficient privileges to execute the provided code.\n")
             case t: Throwable =>
-              //t.printStackTrace(output)
+              t.printStackTrace()
+              t.printStackTrace(output)
+              output.println("---")
               output.println(s"[ERROR] Exception during evaluation or provided code is taking too long and was forcibly stopped.\n")
           } finally {
             //Security.disableForThisThread()
@@ -108,7 +109,7 @@ object Sandbox {
     }
 
     if (out.contains("com.github.davidhoyt.SecurityError")) {
-      sb.clear()
+      //sb.clear()
       sb.append(s"[ERROR] You do not have sufficient privileges to execute the provided code.\n")
     }
 

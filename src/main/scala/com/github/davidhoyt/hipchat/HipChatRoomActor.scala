@@ -15,11 +15,14 @@ class HipChatRoomActor extends Actor with ActorLogging {
   import org.jivesoftware.smackx.muc.{DiscussionHistory, MultiUserChat}
   import rx.lang.scala.Observable
   import scala.util.control.NonFatal
+  import scala.util._
   import HipChat._
 
   import context.dispatcher
 
   val xmpp = Xmpp(context.system)
+  var hipchatJoin: JoinRoom[_ <: Bot] = _
+  var joined = false
   var muc: MultiUserChat = _
   var hipchat: ActorRef = _
   var nickName: String = _
@@ -27,58 +30,92 @@ class HipChatRoomActor extends Actor with ActorLogging {
   var botFactory: BotFactory[_ <: Bot] = _
   var bot: Option[Bot] = None
 
-  override def receive: Receive = {
-    case JoinRoom(roomId, joinNickName, joinMentionName, joinBotFactory, joinBotArgs, joinRecipient) =>
-      log.info("Joining room {} with {}/@{}", roomId, joinNickName, joinMentionName)
+  def xmppJoinRoom[T](roomId: String, nickName: String, password: String = null): Boolean = {
+    val fullRoomId = roomId // s"$roomId@conf.hipchat.com"
 
-      val fullRoomId = s"$roomId@conf.hipchat.com"
+    val myself = self
+
+    val history = new DiscussionHistory
+    history.setMaxChars(0)
+    history.setMaxStanzas(0)
+    history.setSeconds(0)
+    history.setSince(new java.util.Date())
+
+    try {
+      val connection = xmpp.connection.getOrElse(throw new IllegalStateException(s"Unable to get XMPP connection"))
+
+      Option(muc).foreach(m => Try(m.leave()))
+
+//      muc = MultiUserChatManager.getInstanceFor(connection).getMultiUserChat(fullRoomId)
+      muc = new MultiUserChat(connection, fullRoomId)
+      muc.join(nickName, password, history, SmackConfiguration.getDefaultPacketReplyTimeout)
+
+      log.info("Successfully joined {}", roomId)
+
+      joined = true
+
+      //Maintain a reference to the multi user chat observable.
+      obs = muc.toObservable
+      obs foreach { msg =>
+        myself ! MessageReceived(msg.getFrom, Option(msg.getBody).getOrElse(""))
+      }
+
+      true
+    } catch {
+      case NonFatal(t) =>
+        log.error(t, s"Unable to join room $roomId")
+        joined = false
+        false
+    }
+  }
+
+  def rejoinRoom(): Unit =
+    if (hipchatJoin ne null) {
+      if (joined)
+        xmppJoinRoom(hipchatJoin.roomId, hipchatJoin.nickName)
+      else
+        self ! hipchatJoin
+    }
+
+  override def receive: Receive = {
+    case join @ JoinRoom(roomId, joinNickName, joinMentionName, joinBotFactory, joinBotArgs, joinRecipient) =>
+      log.info("Joining room {} with {}/@{}", roomId, joinNickName, joinMentionName)
 
       val myself = self
       val originalSender = sender()
 
-      val history = new DiscussionHistory
-      history.setMaxChars(0)
-      history.setMaxStanzas(0)
-      history.setSeconds(0)
-      history.setSince(new java.util.Date())
+      hipchatJoin = join
 
-      xmpp.connection map { connection =>
-        try {
-          muc = new MultiUserChat(connection, fullRoomId)
-          muc.join(joinNickName, null, history, SmackConfiguration.getDefaultPacketReplyTimeout)
+      if (xmppJoinRoom(roomId, joinNickName)) {
+        hipchat = originalSender
+        botFactory = joinBotFactory
+        bot = botFactory(joinBotArgs)
+        nickName = joinNickName
 
-          hipchat = originalSender
-          botFactory = joinBotFactory
-          bot = botFactory(joinBotArgs)
-          nickName = joinNickName
-
-          log.info("Successfully joined {}", roomId)
-
-          bot map { instance =>
-            val initialize = BotInitialize(joinNickName, joinMentionName, roomId, Some(originalSender), Some(myself))
-            if (instance.initializeReceived.isDefinedAt(initialize))
-              instance.initializeReceived(initialize)
-          }
-
-          context.become(joinedRoom)
-
-
-          muc.toObservable foreach { msg =>
-            myself ! MessageReceived(msg.getFrom, Option(msg.getBody).getOrElse(""))
-          }
-
-          joinRecipient foreach (_ ! RoomJoinedComplete(roomId, success = true))
-        } catch {
-          case NonFatal(t) =>
-            log.error(t, s"Unable to join room $roomId")
-            joinRecipient foreach (_ ! RoomJoinedComplete(roomId, success = false))
+        bot foreach { instance =>
+          val initialize = BotInitialize(joinNickName, joinMentionName, roomId, Some(originalSender), Some(myself))
+          if (instance.initializeReceived.isDefinedAt(initialize))
+            instance.initializeReceived(initialize)
         }
+
+        context.become(joinedRoom)
+
+        joinRecipient foreach (_ ! RoomJoinedComplete(roomId, success = true))
+      } else {
+        joinRecipient foreach (_ ! RoomJoinedComplete(roomId, success = false))
       }
+
+    case RejoinRoom =>
+      rejoinRoom()
+
     case other =>
       log.warning("Unexpectedly received {}", other)
   }
 
-  def joinedRoom: Receive = {
+  val joinedRoom: Receive = {
+    case RejoinRoom =>
+      rejoinRoom()
+
     case msg @ MessageReceived(from, message) =>
       log.info("Received {}", msg)
       val idx = from.indexOf("/")
@@ -88,8 +125,8 @@ class HipChatRoomActor extends Actor with ActorLogging {
         else
           from
 
-      if (participantNickName != nickName) {
-        bot map { instance =>
+      if (participantNickName != nickName || message.startsWith("!")) {
+        bot foreach { instance =>
           val botMsg = BotMessageReceived(participantNickName, message)
           if (instance.messageReceived.isDefinedAt(botMsg)) {
             import scala.concurrent.duration._

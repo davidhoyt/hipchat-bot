@@ -19,7 +19,7 @@ object Main extends App with LazyLogging {
 
   @volatile var running = true
 
-  implicit val timeout = akka.util.Timeout(30.seconds)
+  implicit val timeout = akka.util.Timeout(7.days)
 
   val system = ActorSystem("xmpp")
   sys.addShutdownHook {
@@ -50,6 +50,7 @@ object Main extends App with LazyLogging {
 
   val configBots = config.as[Config]("bots")
 
+  val serviceName = config.as[String]("hipchat.service-name")
   val host = config.as[String]("hipchat.host")
   val port = config.as[Int]("hipchat.port")
 
@@ -70,7 +71,7 @@ object Main extends App with LazyLogging {
 
   def launchScalaBots(): Future[Boolean] = {
     if (enabled) {
-      hipchat ! Connect(HipChatConfiguration(host, port, userName, password))
+      hipchat ! Connect(HipChatConfiguration(serviceName, host, port, userName, password))
 
       val result =
         for (room <- rooms)
@@ -78,7 +79,8 @@ object Main extends App with LazyLogging {
 
       Future
         .sequence(result)
-        .map(_.asInstanceOf[Seq[RoomJoinedComplete]].forall(_.success))
+        .mapTo[Seq[RoomJoinedComplete]]
+        .map(_.forall(_.success))
     } else {
       Future
         .successful(true)

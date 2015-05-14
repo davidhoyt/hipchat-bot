@@ -5,9 +5,12 @@ import com.github.davidhoyt.{BotFactory, Bot}
 object HipChat {
   import akka.actor.ActorRef
 
-  case class HipChatConfiguration(host: String, port: Int, userName: String, password: String)
+  case class HipChatConfiguration(serviceName: String, host: String, port: Int, userName: String, password: String)
   case class Connect(configuration: HipChatConfiguration)
+  case object Reconnect
+  case object Disconnected
   case class JoinRoom[T <: Bot](roomId: String, nickName: String, mentionName: String, botFactory: BotFactory[T], args: Seq[Any] = Seq(), recipient: Option[ActorRef] = None)
+  case object RejoinRoom
   case class StatusUpdate(update: Status, status: String = "")
   case class RoomJoinedComplete(roomId: String, success: Boolean)
   case class MessageReceived(from: String, message: String)
