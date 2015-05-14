@@ -12,6 +12,7 @@ object ScalaBot {
     ":kind",
     ":reset",
     ":toggleEcho",
+    ":toggleQuote",
     ":type",
     ":warnings",
     ":help",
